@@ -44,6 +44,7 @@ export class Login extends Component {
     });
     let resp = await response.json();
     localStorage.setItem('jwt', resp.accessToken);
+    document.getElementById("generated-token").value = resp.accessToken;
     return resp.accessToken;
   };
 
@@ -125,23 +126,28 @@ export class Login extends Component {
     return (
       <div>
         <h1>Authorization with JWT</h1>
-
+        <p>This demonstrates basic functionality for JWT (json web tokens) and implements a secured endpoint which requires a valid JWT-bearer token in the header to get access. Try the different login-buttons and then the Test-button to see the different responses.</p>
         <hr />
         
         <h2>Test Authentication</h2>
         <h3>Successful login</h3>
-        <p>Login with correct credentials. This generates a token stored in localstorage.</p>
-        <button className="btn btn-primary" onClick={this.sendAjaxS}>Login</button>
+        <p>Login with correct credentials. This generates a token stored in localstorage. However, this is probably not a good place to store tokens depending on if the site allows javascript from other sources or if the user has any malicious extensions installed.</p>
+        
+        <button className="btn btn-primary" onClick={this.sendAjaxS}>Generate valid JWT</button>
+        <p>Default username: <b>admin</b> password: <b>random</b>. </p>
+        <p>Your generated web token:</p>
+        <textarea readonly="true" id="generated-token" cols="40" rows="3"></textarea>
+        <p>To inspect the generated token and what it contains, copy it and paste here: <a href="https://jwt.io/">https://jwt.io/</a></p>
 
         <h3>Failed login</h3>
         <p>Login with incorrect credentials. This generates an empty token.</p>
-        <button className="btn btn-primary" onClick={this.sendAjaxF}>Login</button>
+        <button className="btn btn-primary" onClick={this.sendAjaxF}>Generate invalid JWT</button>
         
         <hr/>
         
         <h2>Test Authorization</h2>
         <p>Test a request against which also sends the generated token. With a valid token, we could expect a response but with an invalid token the HTTP-statuscode we should receive is an 401: Unauthorized.</p>
-        <button className="btn btn-primary" onClick={this.sendAjaxRestricted}>Test</button>
+        <button className="btn btn-primary" onClick={this.sendAjaxRestricted}>Test request against protected endpoint</button>
 
         <h2>Results</h2>
         <br/>

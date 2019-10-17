@@ -9,6 +9,7 @@ namespace AuthO.Services
 {
     public class LoginService: ILoginService
     {
+        //unsecure secret and should be stored in a setting-config or similiar
         string SecretToken = "mysecrettoken_abc";
         string TokenIssuer = "webserva";
 
@@ -34,6 +35,7 @@ namespace AuthO.Services
 
         public string Login(User user)
         {
+            //hardcoded values just to try 
             if (user.Username == "admin" && user.Password == "random")
                 return GenerateJSONWebToken(user);
             else
