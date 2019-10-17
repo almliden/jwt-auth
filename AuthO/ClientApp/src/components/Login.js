@@ -63,60 +63,61 @@ export class Login extends Component {
     let resp = await response;
     let retVal = {result: '', status: 0};
 
-    try {
-      const reader = response.body.getReader();
+    if (resp.status >= 200 && resp.status < 300){
+        try {
+          const reader = response.body.getReader();
 
-      // Step 2: get total length
-      const contentLength = +response.headers.get('Content-Length');
+          // Step 2: get total length 
+          //const contentLength = +response.headers.get('Content-Length');
 
-      // Step 3: read the data
-      let receivedLength = 0; // received that many bytes at the moment
-      let chunks = []; // array of received binary chunks (comprises the body)
-      while(true) {
-        const {done, value} = await reader.read();
+          // Step 3: read the data
+          let receivedLength = 0; // received that many bytes at the moment
+          let chunks = []; // array of received binary chunks (comprises the body)
+          while(true) {
+            const {done, value} = await reader.read();
 
-        if (done) {
-          break;
+            if (done) {
+              break;
+            }
+
+            chunks.push(value);
+            receivedLength += value.length;
+          }
+
+          // Step 4: concatenate chunks into single Uint8Array
+          let chunksAll = new Uint8Array(receivedLength); // (4.1)
+          let position = 0;
+          for(let chunk of chunks) {
+            chunksAll.set(chunk, position); // (4.2)
+            position += chunk.length;
+          }
+
+          // Step 5: decode into a string
+          let result = new TextDecoder("utf-8").decode(chunksAll);
+
+
+          retVal.result = JSON.parse(result).result;
+          retVal.status = resp.status;
         }
-
-        chunks.push(value);
-        receivedLength += value.length;
-      }
-
-      // Step 4: concatenate chunks into single Uint8Array
-      let chunksAll = new Uint8Array(receivedLength); // (4.1)
-      let position = 0;
-      for(let chunk of chunks) {
-        chunksAll.set(chunk, position); // (4.2)
-        position += chunk.length;
-      }
-
-      // Step 5: decode into a string
-      let result = new TextDecoder("utf-8").decode(chunksAll);
-      if (resp.status >= 200 && resp.status < 300){
-        retVal.result = JSON.parse(result).result;
-        retVal.status = resp.status;
-      }
-      else if (resp.status >= 400 && resp.status < 500) {
-        retVal.result = 'Client error';
-        retVal.status = resp.status;
-      }
-      else {
-        retVal.result = 'no response body received';
-        retVal.status = resp.status;
-      }
-
+        catch{
+            retVal.status = 0;
+            retVal.result = 'Couldn\'t parse response. ';
+        }
     }
-    catch{
-      if (resp.status === '404'){
+    else {
         retVal.status = resp.status;
-        retVal.result = 'Could not find';
-      } else {
-        retVal.status = 0;
-        retVal.result = 'Couldn\'t parse response';
-      }
+        switch (resp.status) {
+            case(404):
+                retVal.result = 'Could not find';
+                break;
+            case (401):
+                retVal.result = 'Unauthorized';
+                break;
+            default:
+                retVal.result = 'Error';
+                break;
+        }
     }
-
     return retVal;
   };
 
