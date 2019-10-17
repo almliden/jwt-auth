@@ -3,21 +3,27 @@
 export class Login extends Component {
   constructor(props) {
     super(props);
-    this.state = { currentCount: 0 };
-    this.incrementCounter = this.incrementCounter.bind(this);
+    this.state = { style: {border: "1px dotted black", backgroundColor: "lightgray"} };
+
     this.sendAjaxS = this.sendAjaxS.bind(this);
     this.sendAjaxF = this.sendAjaxF.bind(this);
     this.sendAjaxRestricted = this.sendAjaxRestricted.bind(this);
   }
+
   sendAjaxS() {
     this.sendAjax('random')
   }
   sendAjaxF() {
-    this.sendAjax('wrong')
+    this.sendAjax('wrong password')
   }
+
   async sendAjaxRestricted() {
-    let resp = this.sendAjaxGet();
-    let newElement = `<span>Status: ${resp.status}. Value: ${resp.json}</span>`
+    let resp = await this.sendAjaxGet();
+    if (resp.status === '200' || resp.status === 200)
+      this.setState({style:  {border: "1px dotted black", backgroundColor: "lightgreen"} });
+    else
+      this.setState({style:  {border: "1px dotted black", backgroundColor: "yellow"} });
+    let newElement = `<b>${resp.status}</b>: <span>${resp.result}</span>`
     document.getElementById('require-auth').innerHTML = newElement;
   }
 
@@ -26,16 +32,14 @@ export class Login extends Component {
     let data = { 'Username': 'admin', 'Password': password };
     const response = await fetch(url, {
         method: 'POST',
-        mode: 'cors', // no-cors, *cors, same-origin
+        mode: 'cors',
         cache: 'no-cache',
-        // credentials: 'same-origin', // include, *same-origin, omit  
         headers: {
           'Content-Type': 'application/json'
-          // 'Content-Type': 'application/x-www-form-urlencoded',
         },
-        redirect: 'follow', // manual, *follow, error 
-        referrer: 'no-referrer', // no-referrer, *client 
-        body: JSON.stringify(data), // body data type must match "Content-Type" header
+        redirect: 'follow', 
+        referrer: 'no-referrer',
+        body: JSON.stringify(data),
 
     });
     let resp = await response.json();
@@ -47,46 +51,100 @@ export class Login extends Component {
     let url = '/api/restricted';
     const response = await fetch(url, {
         method: 'GET',
-        mode: 'cors', // no-cors, *cors, same-origin
+        mode: 'cors',
         cache: 'no-cache',
-        // credentials: 'same-origin', // include, *same-origin, omit   
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'bearer ' + localStorage.getItem('jwt')
-          // 'Content-Type': 'application/x-www-form-urlencoded',
-        }, 
-        redirect: 'follow', // manual, *follow, error 
-        referrer: 'no-referrer', // no-referrer, *client   
-        //body: JSON.stringify(data), // body data type must match "Content-Type" header
+        },
+        redirect: 'follow',
+        referrer: 'no-referrer',
     });
-    let resp = await response.json();
-    return resp.result || 'error';
-  };
+    let resp = await response;
+    let retVal = {result: '', status: 0};
 
-  incrementCounter() {
-    this.setState({
-      currentCount: this.state.currentCount + 1
-    });
-  }
-  //<p aria-live="polite">Current count: <strong>{this.state.currentCount}</strong></p>
+    try {
+      const reader = response.body.getReader();
+
+      // Step 2: get total length
+      const contentLength = +response.headers.get('Content-Length');
+
+      // Step 3: read the data
+      let receivedLength = 0; // received that many bytes at the moment
+      let chunks = []; // array of received binary chunks (comprises the body)
+      while(true) {
+        const {done, value} = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        chunks.push(value);
+        receivedLength += value.length;
+      }
+
+      // Step 4: concatenate chunks into single Uint8Array
+      let chunksAll = new Uint8Array(receivedLength); // (4.1)
+      let position = 0;
+      for(let chunk of chunks) {
+        chunksAll.set(chunk, position); // (4.2)
+        position += chunk.length;
+      }
+
+      // Step 5: decode into a string
+      let result = new TextDecoder("utf-8").decode(chunksAll);
+      if (resp.status >= 200 && resp.status < 300){
+        retVal.result = JSON.parse(result).result;
+        retVal.status = resp.status;
+      }
+      else if (resp.status >= 400 && resp.status < 500) {
+        retVal.result = 'Client error';
+        retVal.status = resp.status;
+      }
+      else {
+        retVal.result = 'no response body received';
+        retVal.status = resp.status;
+      }
+
+    }
+    catch{
+      if (resp.status === '404'){
+        retVal.status = resp.status;
+        retVal.result = 'Could not find';
+      } else {
+        retVal.status = 0;
+        retVal.result = 'Couldn\'t parse response';
+      }
+    }
+
+    return retVal;
+  };
 
   render() {
     return (
       <div>
-        <h1>OAuth2.0</h1>
+        <h1>Authorization with JWT</h1>
 
         <hr />
-        <h2>Test login</h2>
-        <h3>Login success</h3>
+        
+        <h2>Test Authentication</h2>
+        <h3>Successful login</h3>
+        <p>Login with correct credentials. This generates a token stored in localstorage.</p>
         <button className="btn btn-primary" onClick={this.sendAjaxS}>Login</button>
 
-        <h3>Login fail</h3>
+        <h3>Failed login</h3>
+        <p>Login with incorrect credentials. This generates an empty token.</p>
         <button className="btn btn-primary" onClick={this.sendAjaxF}>Login</button>
+        
         <hr/>
-        <h2>Test authentication</h2>
+        
+        <h2>Test Authorization</h2>
+        <p>Test a request against which also sends the generated token. With a valid token, we could expect a response but with an invalid token the HTTP-statuscode we should receive is an 401: Unauthorized.</p>
         <button className="btn btn-primary" onClick={this.sendAjaxRestricted}>Test</button>
 
-        <div id="require-auth">
+        <h2>Results</h2>
+        <br/>
+        <div id="require-auth" style={this.state.style}>
           <i>No request has been made</i>
         </div>
       </div>
