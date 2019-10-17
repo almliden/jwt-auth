@@ -87,7 +87,6 @@ namespace AuthO
             app.UseAuthentication();
             app.UseAuthorization();
 
-
             app.UseRouting();
 
             app.UseEndpoints(endpoints =>
